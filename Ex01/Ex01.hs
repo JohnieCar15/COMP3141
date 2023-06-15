@@ -2,6 +2,7 @@ module Ex01 where
 
 import Codec.Picture (writePng)
 import ShapeGraphics
+import Data.List (sort, sortBy, sortOn)
 
 -- For this assignment, you will use the `ShapeGraphics`
 -- library. You can (and should) read the source code
@@ -23,8 +24,10 @@ housePic = [house, door]
     houseCoords = merge houseCOx houseCOy
     house :: PictureObject
     house = Path houseCoords green Solid
+    doorCoords :: [Point]
+    doorCoords = convert doorCOs
     door :: PictureObject
-    door  = error "'door' not implemented"
+    door  = Path doorCoords red Solid
 
 -- These are the lists of X and Y coordinates of the path
 -- that makes up the house outline.
@@ -39,7 +42,25 @@ houseCOy = [750.0,450.0,450.0,200.0,450.0,450.0,750.0]
 -- by the `house` function above.
 
 merge :: [Float] -> [Float] -> [Point]
-merge xCoords yCoords = error "'merge' not implemented"
+merge [] [] = []
+merge (x:xCoords) (y:yCoords) = Point x y : merge xCoords yCoords
+
+-- Define a combine function which converts the two lists
+-- of coordinates above into a tuple of floats
+combine :: [Float] -> [Float] -> [(Float, Float)]
+combine [] [] = []
+combine (x:xCoords) (y:yCoords) = (x, y) : combine xCoords yCoords
+
+-- Convert tuple of floats to points
+extract :: (Float, Float) -> Point
+extract (f1, f2) = Point f1 f2
+
+-- Define a convert function which converts a list of floats to
+-- a list of points
+
+convert :: [(Float, Float)] -> [Point]
+convert [] =  []
+convert floats = map extract floats
 
 -- The door coordinates are given in a different format.
 -- Convert them to the correct format and define `door`
@@ -57,14 +78,28 @@ chimneyCOs = [(605, 325), (605, 250), (650, 250), (650, 363)]
 windowCOs :: [(Float, Float)]
 windowCOs = [(350, 650), (350, 550), (450, 550), (450, 650)]
 
+chimneyHouseCOs :: [(Float, Float)]
+chimneyHouseCOs = [(300, 750), (300, 450), (270, 450), (500, 200), (605, 325), (605, 250), (650, 250), (650, 363), (730, 450), (700, 450),  (700, 750)]
+
 cyan :: Colour
 cyan = Colour 96 192 255 255
 
 window :: PictureObject
-window = error "'window' not implemented"
+windowCoords :: [Point]
+windowCoords = convert windowCOs
+window = Polygon windowCoords cyan Solid SolidFill
 
 chimneyHouse :: Picture
-chimneyHouse = error "'chimneyHouse' not implemented"
+chimneyHouse = [house, door, window]
+  where
+    houseCoords :: [Point]
+    houseCoords = convert chimneyHouseCOs
+    house :: PictureObject
+    house = Path houseCoords green Solid
+    doorCoords :: [Point]
+    doorCoords = convert doorCOs
+    door :: PictureObject
+    door  = Path doorCoords red Solid
 
 
 
