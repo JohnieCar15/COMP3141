@@ -3,7 +3,7 @@ module Ex01 where
 import Codec.Picture (writePng)
 import ShapeGraphics
 import Data.List (sort, sortBy, sortOn)
-
+import Graphics.Rasterific (line)
 -- For this assignment, you will use the `ShapeGraphics`
 -- library. You can (and should) read the source code
 -- of the library, provided to you in `ShapeGraphics.hs`,
@@ -109,10 +109,17 @@ movePoint :: Point -> Vector -> Point
 movePoint (Point x y) (Vector xv yv)
   = Point (x + xv) (y + yv)
 
-movePictureObject :: Vector -> PictureObject -> PictureObject
-movePictureObject vec (Path points colour lineStyle) = error "'movePictureObject' not implemented"
--- add and implement the 3 other cases (Circle, Ellipse, Polygon)
+movePoints :: [Point] -> Vector -> [Point]
+movePoints (p:points) v = movePoint p v : movePoints points v
 
+movePictureObject :: Vector -> PictureObject -> PictureObject
+movePictureObject vec (Path points colour lineStyle) = Path (movePoints points vec) colour lineStyle
+movePictureObject vec (Circle center radius colour lineStyle fillStyle) = 
+  Circle (movePoint center vec) radius colour lineStyle fillStyle
+movePictureObject vec (Ellipse center width height rotation colour lineStyle fillStyle) = 
+  Ellipse (movePoint center vec) width height rotation colour lineStyle fillStyle
+movePictureObject vec (Polygon points colour lineStyle fillStyle) = 
+  Polygon (movePoints points vec) colour lineStyle fillStyle
 
 
 -- PART 3 --
@@ -123,7 +130,11 @@ movePictureObject vec (Path points colour lineStyle) = error "'movePictureObject
 --  ....
 --  Circle (Point 400 400) 400 col Solid SolidFill]
 simpleCirclePic :: Colour -> Float -> Picture
-simpleCirclePic col n = error "'simpleCirclePic' unimplemented"
+simpleCirclePic col n = []
+  
+
+
+
 
 
 -- use 'writeToFile' to write a picture to file "ex01.png" to test your
