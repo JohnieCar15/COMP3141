@@ -10,6 +10,8 @@ module Ex02(append,Promote(New),testAssoc,testUnit,
 -- template.
 import Data.Semigroup
 import Test.QuickCheck
+import Test.QuickCheck.Gen.Unsafe (promote)
+import Data.Foldable (Foldable(toList))
 
 
 
@@ -39,7 +41,9 @@ instance (Arbitrary s) => Arbitrary (Promote s) where
 
 promoteOp :: (Semigroup g) => Promote g -> Promote g -> Promote g
 promoteOp (Emb x) (Emb y) = Emb (x <> y)
-promoteOp _ _ = error "'promoteOp' not defined"
+promoteOp (Emb x) New = Emb x 
+promoteOp New (Emb y) = Emb y 
+promoteOp New New = New
 -- (retain the first case and define the other cases)
 
 -- Task 1.2: Define the appropriate `Semigroup` and `Monoid`
@@ -47,11 +51,11 @@ promoteOp _ _ = error "'promoteOp' not defined"
 -- operation.
 
 instance (Semigroup s) => Semigroup (Promote s) where
-  (<>) = error "'<>' for 'Promote s' not defined"
+  (<>) = promoteOp
 
 instance (Semigroup s) => Monoid (Promote s) where
-  mempty = error "'mempty' for 'Promote s' not defined"
-  mappend = error "'mappend' for 'Promote s' not defined"
+  mempty = New
+  mappend = (<>)
 
 -- Task 1.3: Write two predicates that QuickCheck can use
 -- to test if a given monoid operation is lawful.
@@ -60,10 +64,10 @@ instance (Semigroup s) => Monoid (Promote s) where
 -- element satisfies the required laws.
 
 testAssoc :: (Monoid g, Eq g) => g -> g -> g -> Bool
-testAssoc x y z = error "'testAssoc' not defined"
+testAssoc x y z = (x <> y) <> z == x <> (y <> z)
 
 testUnit :: (Monoid g, Eq g) => g -> Bool
-testUnit x = error "'testUnit' not defined"
+testUnit x = mempty <> x == x && x <> mempty == x
 
 -- HINT: once you complete 1.3., you'll be able to invoke e.g.
 -- `quickCheck (testUnit :: Promote String -> Bool)`
@@ -93,18 +97,20 @@ instance (Arbitrary t) => Arbitrary (MinMonoid t) where
 -- results in `EmbMM xi`, where xi = minimum of [x1,x2,...,xn].
 
 minMonoidOp :: (Ord t) => MinMonoid t -> MinMonoid t -> MinMonoid t
-minMonoidOp = error "'minMonoidOp' not defined"
+minMonoidOp (EmbMM x) (EmbMM y) = EmbMM (min x y)
+minMonoidOp (EmbMM x) infinity = EmbMM x
+minMonoidOp infinity (EmbMM y) = EmbMM y
 
 
 -- Task 2.2: Define Semigroup and Monoid instaces for `MinMonoid`
 -- using the `minMonoidOp` defined above.
 
 instance (Ord t) => Semigroup (MinMonoid t) where
-  (<>) = error "'<>' for 'MinMonoid' not defined"
+  (<>) = minMonoidOp
 
 instance (Ord t) => Monoid (MinMonoid t) where
-  mempty = error "'mempty' for 'MinMonoid' not defined"
-  mappend = error "'mappend' for 'MinMonoid' not defined"
+  mempty = Infinity
+  mappend = (<>)
 
 -- HINT: A correct implementation will pass the test below.
 
@@ -152,15 +158,22 @@ fromList (x:xs) =
 -- multiplicities need to be positive, and the list must be maximally
 -- packed (so that adjacent elements must be distinct).
 isSparseList :: (Eq a) => [(Int,a)] -> Bool
-isSparseList xs = error "'isSparseList' not defined"
+isSparseList [] = True
+isSparseList [_] = True
+isSparseList ((x1, x2) : (y1, y2) : rest) = x1 <= y1 && x2 /= y2 && isSparseList ((y1, y2) : rest)
+
 
 -- Task 3.2: Define the append operation on SparseLists.  Feel free to
 -- use the template below.  Hint: the last element of xs in the final
 -- clause needs to be treated specially.
 append :: Eq a => SparseList a -> SparseList a -> SparseList a
-append (SparseList []) sl = error "append not defined"
-append sl (SparseList []) = error "append not defined"
-append (SparseList xs) (SparseList ((m,y):ys)) = error "append not defined"
+append (SparseList xs2) (SparseList ys2) = SparseList (merge xs2 ys2)
+  where 
+    merge [] ys = ys
+    merge xs [] = xs
+    merge ((x1,x2):xs) ((y1,y2):ys)
+      | x2 == y2 = merge ((x1+y1, x2) : xs) ys
+      | otherwise = (x1,x2) : merge xs ((y1, y2) : ys)
 
 -- Task 3.3: Write a predicate that tests whether the `append`
 -- operation preserves the `isSparseList` invariant defined above,
@@ -168,21 +181,26 @@ append (SparseList xs) (SparseList ((m,y):ys)) = error "append not defined"
 -- sparse list.
 
 testSparseList :: SparseList Int -> SparseList Int -> Bool
-testSparseList = error "'testSparseList' not defined"
+testSparseList (SparseList xs) (SparseList ys) =
+  case fromList [1] of
+  SparseList xs -> isSparseList xs
+
+
+
 
 -- Task 3.4: Define a semigroup and monoid instance for `SparseList a`
 -- with monoid operation `append`. Write tests for the monoid laws.
 
 instance (Eq t) => Semigroup (SparseList t) where
-  (<>) = error "'<>' for 'SparseList t' not defined"
+  (<>) = append
 
 instance (Eq t) => Monoid (SparseList t) where
-  mempty = error "'mempty' for 'SparseList t' not defined"
-  mappend = error "'mappend' for 'SparseList t' not defined"
+  mempty = SparseList []
+  mappend = (<>)
 
 testAssocSparseList :: SparseList Int -> SparseList Int -> SparseList Int -> Bool
-testAssocSparseList = error "'testAssocSparseList' not defined"
+testAssocSparseList x y z = (x <> y) <> z == x <> (y <> z)
 
 testUnitSparseList :: SparseList Int -> Bool
-testUnitSparseList = error "'testUnitSparseList' not defined"
+testUnitSparseList x = mempty <> x == x && x <> mempty == x
 
