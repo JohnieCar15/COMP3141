@@ -159,21 +159,21 @@ fromList (x:xs) =
 -- packed (so that adjacent elements must be distinct).
 isSparseList :: (Eq a) => [(Int,a)] -> Bool
 isSparseList [] = True
-isSparseList [_] = True
-isSparseList ((x1, x2) : (y1, y2) : rest) = x1 <= y1 && x2 /= y2 && isSparseList ((y1, y2) : rest)
+isSparseList [(x1, x2)] = x1 > 0
+isSparseList ((x1, x2) : (y1, y2) : rest) = x1 > 0 && x2 /= y2 && isSparseList ((y1, y2) : rest)
 
 
 -- Task 3.2: Define the append operation on SparseLists.  Feel free to
 -- use the template below.  Hint: the last element of xs in the final
 -- clause needs to be treated specially.
 append :: Eq a => SparseList a -> SparseList a -> SparseList a
-append (SparseList xs2) (SparseList ys2) = SparseList (merge xs2 ys2)
-  where 
-    merge [] ys = ys
-    merge xs [] = xs
-    merge ((x1,x2):xs) ((y1,y2):ys)
-      | x2 == y2 = merge ((x1+y1, x2) : xs) ys
-      | otherwise = (x1,x2) : merge xs ((y1, y2) : ys)
+append (SparseList xs) (SparseList ys) = SparseList (merge xs ys)
+  where
+    merge [] ys' = ys'
+    merge xs' [] = xs'
+    merge ((i1, x):xs') ((i2, y):ys')
+      | xs' == [] && x == y = (i1+i2, x) : merge [] ((i2, y):ys')
+      | otherwise = (i1, x) : merge xs' ys'
 
 -- Task 3.3: Write a predicate that tests whether the `append`
 -- operation preserves the `isSparseList` invariant defined above,
