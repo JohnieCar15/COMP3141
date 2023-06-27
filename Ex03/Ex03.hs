@@ -17,8 +17,11 @@ import Test.QuickCheck
 -- Give counterexamples to properties 4,5, i.e. values
 -- (x,xs) for which equations 4 and 5 do not hold.
 
+dnub1236_eq1 :: (Eq a) => a -> [a] -> Bool
+dnub1236_eq1 x xs = dnub1236 (x : x : xs) == dnub1236 (x : xs)
+
 dnub1236 :: (Eq a) => [a] -> [a]
-dnub1236 = error "dnub1236 not defined"
+dnub1236 = reverse 
 
 dnub1236_c4 :: (Int, [Int]) -- (x,xs) failing eqn 4
 dnub1236_c4 = error "dnub1236_c4 not defined"
