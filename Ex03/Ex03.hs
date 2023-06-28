@@ -17,17 +17,36 @@ import Test.QuickCheck
 -- Give counterexamples to properties 4,5, i.e. values
 -- (x,xs) for which equations 4 and 5 do not hold.
 
-dnub1236_eq1 :: (Eq a) => a -> [a] -> Bool
-dnub1236_eq1 x xs = dnub1236 (x : x : xs) == dnub1236 (x : xs)
+dnub1236_eq1 :: (Eq a) => [a] -> Bool
+dnub1236_eq1 xs = dnub1236 (dnub1236 xs) == dnub1236 xs
+
+dnub1236_eq2 :: (Eq a) => a -> [a] -> Bool
+dnub1236_eq2 x xs = dnub1236 (x : dnub1236 xs) == dnub1236 (x : xs)
+
+dnub1236_eq3 :: (Eq a) => [a] -> [a] -> Bool
+dnub1236_eq3 xs ys = dnub1236 (xs ++ dnub1236 ys) == dnub1236 (xs ++ ys)
+
+dnub1236_eq4 :: (Eq a) => a -> [a] -> Bool
+dnub1236_eq4 x xs = dnub1236 (x : x : xs) == dnub1236 (x : xs)
+
+dnub1236_eq5 :: (Eq a) => a -> [a] -> Bool
+dnub1236_eq5 x xs = dnub1236 (xs ++ [x] ++ xs) == dnub1236 (xs ++ [x])
+
+dnub1236_eq6 :: (Eq a) => a -> Bool
+dnub1236_eq6 x = dnub1236 [x] == [x]
+
+dnub1236_eq :: Int -> [Int] -> [Int] -> Bool
+dnub1236_eq x xs ys =
+    dnub1236_eq1 xs && dnub1236_eq2 x xs && dnub1236_eq3 xs ys && dnub1236_eq6 x && not (dnub1236_eq4 x xs && dnub1236_eq5 x xs)
 
 dnub1236 :: (Eq a) => [a] -> [a]
-dnub1236 = reverse 
+dnub1236 xs = nub xs
 
 dnub1236_c4 :: (Int, [Int]) -- (x,xs) failing eqn 4
-dnub1236_c4 = error "dnub1236_c4 not defined"
+dnub1236_c4 = (1, [1])
 
 dnub1236_c5 :: (Int, [Int]) -- (x,xs) failing eqn 5
-dnub1236_c5 = error "dnub1236_c5 not defined"
+dnub1236_c5 = (1, [1])
 
 -- Task 2. Implement a dodgy nub function that satisfies
 -- equations 1, 2, 3, 4, 5, but not 6.
