@@ -47,22 +47,28 @@ import Test.QuickCheck
    ...which looks like this in our Haskell representation:
 
    Trie False
-     [('h',
-       Trie False
-         [('e',
-           Trie True
-             [('l',
-              Trie False
-               [('l',
-                Trie True
-                  [('o',
-                    Trie True [])
-                  ]
-                )]
-          )]
+    [
+    ('h', Trie False
+      [
+      ('e', Trie True
+        [
+        ('l', Trie False
+          [
+          ('l', Trie True
+            [
+            ('o', Trie True []
+            )
+            ]
+          )
+          ]
+        )
+        ]
       ),
-      ('i',
-       Trie True [])])]
+      ('i', Trie True []
+      )
+      ]
+    )
+    ]
  -}
 data Trie = Trie Bool [(Char,Trie)] deriving (Eq,Show)
 
@@ -99,7 +105,9 @@ toList (Trie b ts) =
    exactly the words in ws.
  -}
 fromList :: [String] -> Trie
-fromList = error "TODO: implement fromList"
+newList = empty
+fromList = foldr insert empty 
+
 
 {- Recall that a Trie is well-formed if all the
    [(Char,Trie)] lists in it have the following
