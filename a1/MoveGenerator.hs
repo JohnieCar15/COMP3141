@@ -124,7 +124,30 @@ fromList = foldr insert empty
   argument tries (if any) are all well-formed.
  -}
 wellFormed :: Trie -> Bool
-wellFormed = error "TODO: implement wellFormed"
+wellFormed (Trie _ ts) = isSortedUnique ts && all (\(_, t) -> wellFormed t) ts
+
+isSortedUnique :: [(Char, Trie)] -> Bool
+isSortedUnique [] = True
+isSortedUnique [_] = True
+isSortedUnique ((c1, _): (c2, c3): rest)
+  | c1 < c2 = isSortedUnique ((c2, c3): rest)
+  | otherwise = False
+
+-- A well-formed Trie
+trie1 :: Trie
+trie1 = Trie False [('a', Trie True []), ('b', Trie False [('c', Trie True [])])]
+
+-- A Trie with an unsorted list of pairs
+trie2 :: Trie
+trie2 = Trie False [('c', Trie True []), ('b', Trie False [('a', Trie True [])])]
+
+-- A Trie with duplicate characters in the list of pairs
+trie3 :: Trie
+trie3 = Trie False [('a', Trie True []), ('a', Trie False [('b', Trie True [])])]
+
+-- A Trie with duplicate characters more nested in
+trie4 :: Trie
+trie4 = Trie False [('a', Trie True []), ('b', Trie False [('c', Trie True []), ('b', Trie True [])])]
 
 {- We say that a trie is *minimal* if it contains no
    dead branches. A dead branch is a subtrie containing no
@@ -153,7 +176,27 @@ wellFormed = error "TODO: implement wellFormed"
    or vice versa.
  -}
 minimal :: Trie -> Bool
-minimal = error "TODO: implement minimal"
+minimal (Trie b ts) = not (not b && null ts) && all (\(_, t) -> minimal t) ts
+
+nonMinimalTrie1 :: Trie
+nonMinimalTrie1 = Trie True [('a',Trie False [])]
+
+nonMinimalTrie2 :: Trie
+nonMinimalTrie2 = Trie False [('a',Trie False [])]
+
+nonMinimalTrie3 :: Trie
+nonMinimalTrie3 = Trie False [('h',Trie True [('a', Trie False []), ('i', Trie False [])]), ('k', Trie False [])]
+
+{- Weird test case -}
+minimalTrie1 :: Trie
+minimalTrie1 = Trie False []
+
+minimalTrie2 :: Trie
+minimalTrie2 = Trie True []
+
+minimalTrie3 :: Trie
+minimalTrie3 = Trie True [('h', Trie True [])]
+
 
 {- Write a `prune t` which returns a minimal
    trie representing the same dictionary as t.
