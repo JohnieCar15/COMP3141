@@ -176,7 +176,11 @@ trie4 = Trie False [('a', Trie True []), ('b', Trie False [('c', Trie True []), 
    or vice versa.
  -}
 minimal :: Trie -> Bool
-minimal (Trie b ts) = not (not b && null ts) && all (\(_, t) -> minimal t) ts
+minimal (Trie False []) = True
+minimal t = recurseMinimal t
+
+recurseMinimal :: Trie -> Bool
+recurseMinimal (Trie b ts) = not (not b && null ts) && all (\(_, t) -> recurseMinimal t) ts
 
 nonMinimalTrie1 :: Trie
 nonMinimalTrie1 = Trie True [('a',Trie False [])]
@@ -202,7 +206,45 @@ minimalTrie3 = Trie True [('h', Trie True [])]
    trie representing the same dictionary as t.
  -}
 prune :: Trie -> Trie
-prune = error "TODO: implement prune"
+prune (Trie b ts) = Trie b (filter isNotDeadBranch prunedSubtries)
+  where
+    prunedSubtries = map (\(c, subTs) -> (c, prune subTs)) ts 
+    isNotDeadBranch (_, t) = isEmpty t
+
+    isEmpty :: Trie -> Bool
+    isEmpty (Trie bt subTs) = not (not bt && null subTs) 
+
+exampleNonTrie :: Trie
+exampleNonTrie =
+  Trie False
+    [ ('h', Trie True
+        [ ('a', Trie False [])
+        , ('i', Trie False [])
+        ])
+    , ('k', Trie False [])
+    , ('z', Trie True
+        [ ('i', Trie False [])
+        , ('p', Trie False [])
+        ])
+    ]
+
+examplePrunedTrie :: Trie
+examplePrunedTrie =
+  Trie False
+    [ ('h', Trie True
+        [ 
+        ])
+    , ('z', Trie True
+        [ 
+        ])
+    ]
+
+
+pruneTest1 :: Bool
+pruneTest1 = not (minimal exampleNonTrie) && ((minimal $ prune exampleNonTrie)) 
+            && (prune exampleNonTrie == examplePrunedTrie) 
+
+
 
 {- Here's a generator and associated
    Arbitrary instance for use with QuickCheck.
@@ -232,13 +274,23 @@ instance Arbitrary Trie where
    in the dictionary `t`, and False otherwise.
  -}
 check :: Trie -> String -> Bool
-check = error "TODO: implement check"
+check (Trie isWord ts) [] = isWord
+check (Trie _ ts) (x:xs) = case lookupSubTrie x ts of
+  Just subTrie -> check subTrie xs
+  Nothing -> False
+
+lookupSubTrie :: Char -> [(Char, Trie)] -> Maybe Trie
+lookupSubTrie _ [] = Nothing
+lookupSubTrie c ((c', subTrie):rest)
+  | c == c' = Just subTrie
+  | c < c' = Nothing
+  | otherwise = lookupSubTrie c rest
 
 {- The union of two dictionaries t,t' should contain
    all words that occur in either t or t'.
  -}
 union :: Trie -> Trie -> Trie
-union = error "TODO: implement union"
+union t (Trie isWord ts') = error "TODO: implement union"
 
 {- The intersection of two dictionaries t,t' should contain
    all words that occur in *both* t and t'.
