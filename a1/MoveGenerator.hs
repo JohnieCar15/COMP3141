@@ -43,7 +43,7 @@ import Test.QuickCheck
            True
              | 'o'
            True
-            
+
    ...which looks like this in our Haskell representation:
 
    Trie False
@@ -106,7 +106,7 @@ toList (Trie b ts) =
  -}
 fromList :: [String] -> Trie
 newList = empty
-fromList = foldr insert empty 
+fromList = foldr insert empty
 
 
 {- Recall that a Trie is well-formed if all the
@@ -208,11 +208,11 @@ minimalTrie3 = Trie True [('h', Trie True [])]
 prune :: Trie -> Trie
 prune (Trie b ts) = Trie b (filter isNotDeadBranch prunedSubtries)
   where
-    prunedSubtries = map (\(c, subTs) -> (c, prune subTs)) ts 
+    prunedSubtries = map (\(c, subTs) -> (c, prune subTs)) ts
     isNotDeadBranch (_, t) = isEmpty t
 
-    isEmpty :: Trie -> Bool
-    isEmpty (Trie bt subTs) = not (not bt && null subTs) 
+isEmpty :: Trie -> Bool
+isEmpty (Trie bt subTs) = not (not bt && null subTs)
 
 exampleNonTrie :: Trie
 exampleNonTrie =
@@ -232,17 +232,17 @@ examplePrunedTrie :: Trie
 examplePrunedTrie =
   Trie False
     [ ('h', Trie True
-        [ 
+        [
         ])
     , ('z', Trie True
-        [ 
+        [
         ])
     ]
 
 
 pruneTest1 :: Bool
-pruneTest1 = not (minimal exampleNonTrie) && ((minimal $ prune exampleNonTrie)) 
-            && (prune exampleNonTrie == examplePrunedTrie) 
+pruneTest1 = not (minimal exampleNonTrie) && ((minimal $ prune exampleNonTrie))
+            && (prune exampleNonTrie == examplePrunedTrie)
 
 
 
@@ -274,7 +274,7 @@ instance Arbitrary Trie where
    in the dictionary `t`, and False otherwise.
  -}
 check :: Trie -> String -> Bool
-check (Trie isWord ts) [] = isWord
+check (Trie b ts) [] = b
 check (Trie _ ts) (x:xs) = case lookupSubTrie x ts of
   Just subTrie -> check subTrie xs
   Nothing -> False
@@ -286,17 +286,119 @@ lookupSubTrie c ((c', subTrie):rest)
   | c < c' = Nothing
   | otherwise = lookupSubTrie c rest
 
+checkTrie1 :: Trie
+checkTrie1 = Trie False
+  [('h',
+    Trie False
+      [('e',
+        Trie True
+          [('l',
+           Trie False
+            [('l',
+             Trie True
+               [('o',
+                 Trie True [])
+               ]
+             )]
+       )]
+   ),
+   ('i',
+    Trie True [])])]
+
+checkTest1 :: Bool
+checkTest1 = check checkTrie1 "hello" && check checkTrie1 "he" && check checkTrie1 "hi" && check checkTrie1 "hell" && not (check checkTrie1 "h") && not (check checkTrie1 "")
+
 {- The union of two dictionaries t,t' should contain
    all words that occur in either t or t'.
  -}
 union :: Trie -> Trie -> Trie
-union t (Trie isWord ts') = error "TODO: implement union"
+union (Trie _ ts) (Trie isWord ts') = Trie isWord (mergeSubTries ts ts')
+
+mergeSubTries :: [(Char, Trie)] -> [(Char, Trie)] -> [(Char, Trie)]
+mergeSubTries [] ts = ts
+mergeSubTries ts [] = ts
+mergeSubTries ((c, subTrie):ts) ((c', subTrie'):ts')
+  | c < c' = (c, subTrie) : mergeSubTries ts ((c', subTrie'):ts')
+  | c > c' = (c', subTrie') : mergeSubTries ((c, subTrie):ts) ts'
+  | otherwise = (c, union subTrie subTrie') : mergeSubTries ts ts'
+
+unionTrie1 :: Trie
+unionTrie1 = Trie False
+  [('h',
+    Trie False
+      [('e',
+        Trie True
+          [('l',
+           Trie False
+            [('l',
+             Trie True
+               [('o',
+                 Trie True [])
+               ]
+             )]
+       )]
+   ),
+   ('i',
+    Trie True [])])]
+
+unionTrie2:: Trie
+unionTrie2 = Trie False
+  [('h',
+    Trie True
+      [('e',
+        Trie True
+          [('l',
+           Trie False
+            [('l',
+             Trie True
+               [('o',
+                 Trie True [])
+               ]
+             )]
+       )]
+   ),
+   ('i',
+    Trie True [])])]
+
+checkUnion1 :: Bool
+checkUnion1 = union unionTrie1 unionTrie2 == unionTrie2
 
 {- The intersection of two dictionaries t,t' should contain
    all words that occur in *both* t and t'.
  -}
 intersection :: Trie -> Trie -> Trie
-intersection = error "TODO: implement intersection"
+intersection (Trie b ts) (Trie b' ts') =
+  Trie (b && b') (intersectSubTries ts ts')
+  where
+    intersectSubTries :: [(Char, Trie)] -> [(Char, Trie)] -> [(Char, Trie)]
+    intersectSubTries [] _ = []
+    intersectSubTries _ [] = []
+    intersectSubTries ((c, subTrie):ts) ((c', subTrie'):ts')
+      | c < c' = intersectSubTries ts ((c', subTrie'):ts')
+      | c > c' = intersectSubTries ((c, subTrie):ts) ts'
+      | otherwise = (c, intersection subTrie subTrie') : intersectSubTries ts ts'
+
+intersectionTrie1 :: Trie
+intersectionTrie1 = Trie False
+  [('h',
+    Trie True
+      [('e',
+        Trie True
+          [('l',
+           Trie False
+            [('l',
+             Trie True
+               [('o',
+                 Trie True [])
+               ]
+             )]
+       )]
+   ),
+   ('i',
+    Trie True [])])]
+
+checkIntersection1 :: Bool
+checkIntersection1 = intersection unionTrie1 unionTrie2 == unionTrie1
 
 {- One of the above (union or intersection) forms
    a monoid with `empty` as identity element.
@@ -306,7 +408,7 @@ intersection = error "TODO: implement intersection"
 newtype TrieMonoid = TrieMonoid {fromMonoid :: Trie} deriving (Eq,Show)
 
 instance Semigroup TrieMonoid where
-  (<>) = error "TODO: semigroup operation undefined"
+  (TrieMonoid t1) <> (TrieMonoid t2) = TrieMonoid (union t1 t2)
 
 instance Monoid TrieMonoid where
   mappend = (<>)
@@ -365,7 +467,7 @@ sandwichableLetters = error "TODO: implement sandwichableLetters"
 {- A constraint represents a predicate on characters.
    A character c is said to *match* a constraint
    according to the following clauses:
-  
+
    - Any character c matches `Wildcard`.
    - A character c matches `Mem cs`, if c occurs in cs.
  -}
