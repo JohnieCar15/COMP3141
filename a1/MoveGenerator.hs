@@ -451,8 +451,16 @@ instance Monoid TrieMonoid where
 
    This utility function is useful for pulling out specific tiles from a rack.
  -}
-pick :: Eq a => [a] -> a -> (Bool,[a])
-pick = error "TODO: implement pick"
+pick :: Eq a => a -> [a] -> (Bool,[a])
+pick x xs
+  | x `elem` xs = (True, removeFirst x xs)
+  | otherwise = (False, xs)
+
+removeFirst :: Eq a => a -> [a] -> [a]
+removeFirst _ [] = []
+removeFirst y (z:zs)
+  | y == z = zs
+  | otherwise = z : removeFirst y zs
 
 {- `sandwichableLetters t xs ys` should return a list
    containing all the characters x such that
@@ -462,7 +470,24 @@ pick = error "TODO: implement pick"
    formed vertically.
  -}
 sandwichableLetters :: Trie -> String -> String -> [Char]
-sandwichableLetters = error "TODO: implement sandwichableLetters"
+sandwichableLetters t xs ys = [x | x <- ['a'..'z'], isWord (xs ++ [x] ++ ys)]
+  where
+    isWord :: String -> Bool
+    isWord word = isPrefixOfWord word t || isPrefixOfWord (reverse word) t
+
+    isPrefixOfWord :: String -> Trie -> Bool
+    isPrefixOfWord [] _ = True
+    isPrefixOfWord (c:cs) (Trie _ subtries) =
+      case lookupSubtrie c subtries of
+        Just subtrie -> isPrefixOfWord cs subtrie
+        Nothing -> False
+
+    lookupSubtrie :: Char -> [(Char, Trie)] -> Maybe Trie
+    lookupSubtrie _ [] = Nothing
+    lookupSubtrie c ((x,t) : xs)
+      | c == x = Just t
+      | c < x = Nothing
+      | otherwise = lookupSubtrie c xs
 
 {- A constraint represents a predicate on characters.
    A character c is said to *match* a constraint
@@ -497,14 +522,28 @@ type Pattern = [Constraint]
    in t that have length n.
  -}
 filterLength :: Int -> Trie -> Trie
-filterLength = error "TODO: implement filterLength"
+filterLength n (Trie b ts) = Trie b (filterLengthHelper n ts)
+  where
+    filterLengthHelper :: Int -> [(Char, Trie)] -> [(Char, Trie)]
+    filterLengthHelper _ [] = []
+    filterLengthHelper len ((c, subtrie):rest)
+      | len == 0 = []
+      | len == 1 = [(c, subtrie) | isWord subtrie]
+      | otherwise = (c, filterLength (len - 1) subtrie) : filterLengthHelper len rest
+      where
+        isWord :: Trie -> Bool
+        isWord (Trie isWord _) = isWord
 
 {- `filterPattern cs t` should return
    a dictionary containing all words in t
    that matches the pattern cs.
  -}
 filterPattern :: Pattern -> Trie -> Trie
-filterPattern = error "TODO: implement filterPattern"
+filterPattern [] t = t  -- Empty pattern matches everything
+filterPattern (Wildcard:cs) (Trie b ts) = Trie b (map (\(c, subtrie) -> (c, filterPattern cs subtrie)) ts)
+filterPattern ((Mem xs):cs) (Trie b ts) = Trie b (filter (\(c, _) -> c `elem` xs) ts')
+  where
+    ts' = [(c, filterPattern cs subtrie) | (c, subtrie) <- ts]
 
 {- A Tile is either a letter tile, or a blank tile.
    Blank tiles are the most OP thing in the game:
@@ -544,7 +583,14 @@ instance Arbitrary Tile where
    present in the input dictionary.
  -}
 filterPlayables :: Rack -> Trie -> Trie
-filterPlayables = error "TODO: implement filterPlayables"
+filterPlayables [] t = t  -- Empty rack matches everything
+filterPlayables (tile:rack) (Trie b ts) = Trie b (filterTile tile ts')
+  where
+    ts' = [(c, filterPlayables rack subtrie) | (c, subtrie) <- ts]
+
+    filterTile :: Tile -> [(Char, Trie)] -> [(Char, Trie)]
+    filterTile Blank ts = ts  -- Blank tile can be used as any letter
+    filterTile (Letter c) ts = filter (\(ch, _) -> ch == c) ts
 
 {- `Board xs` represents a view of the board state as follows:
    - each element of xs represents a column
