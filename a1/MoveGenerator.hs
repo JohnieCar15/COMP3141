@@ -367,16 +367,15 @@ checkUnion1 = union unionTrie1 unionTrie2 == unionTrie2
    all words that occur in *both* t and t'.
  -}
 intersection :: Trie -> Trie -> Trie
-intersection (Trie b ts) (Trie b' ts') =
-  Trie (b && b') (intersectSubTries ts ts')
-  where
-    intersectSubTries :: [(Char, Trie)] -> [(Char, Trie)] -> [(Char, Trie)]
-    intersectSubTries [] _ = []
-    intersectSubTries _ [] = []
-    intersectSubTries ((c, subTrie):ts) ((c', subTrie'):ts')
-      | c < c' = intersectSubTries ts ((c', subTrie'):ts')
-      | c > c' = intersectSubTries ((c, subTrie):ts) ts'
-      | otherwise = (c, intersection subTrie subTrie') : intersectSubTries ts ts'
+intersection (Trie b ts) (Trie b' ts') = Trie (b && b') (intersectSubTries ts ts')
+
+intersectSubTries :: [(Char, Trie)] -> [(Char, Trie)] -> [(Char, Trie)]
+intersectSubTries [] _ = []
+intersectSubTries _ [] = []
+intersectSubTries ((c, subTrie):ts) ((c', subTrie'):ts')
+  | c < c' = intersectSubTries ts ((c', subTrie'):ts')
+  | c > c' = intersectSubTries ((c, subTrie):ts) ts'
+  | otherwise = (c, intersection subTrie subTrie') : intersectSubTries ts ts'
 
 intersectionTrie1 :: Trie
 intersectionTrie1 = Trie False
@@ -451,8 +450,8 @@ instance Monoid TrieMonoid where
 
    This utility function is useful for pulling out specific tiles from a rack.
  -}
-pick :: Eq a => a -> [a] -> (Bool,[a])
-pick x xs
+pick :: Eq a => [a] -> a -> (Bool,[a])
+pick xs x
   | x `elem` xs = (True, removeFirst x xs)
   | otherwise = (False, xs)
 
@@ -470,24 +469,7 @@ removeFirst y (z:zs)
    formed vertically.
  -}
 sandwichableLetters :: Trie -> String -> String -> [Char]
-sandwichableLetters t xs ys = [x | x <- ['a'..'z'], isWord (xs ++ [x] ++ ys)]
-  where
-    isWord :: String -> Bool
-    isWord word = isPrefixOfWord word t || isPrefixOfWord (reverse word) t
-
-    isPrefixOfWord :: String -> Trie -> Bool
-    isPrefixOfWord [] _ = True
-    isPrefixOfWord (c:cs) (Trie _ subtries) =
-      case lookupSubtrie c subtries of
-        Just subtrie -> isPrefixOfWord cs subtrie
-        Nothing -> False
-
-    lookupSubtrie :: Char -> [(Char, Trie)] -> Maybe Trie
-    lookupSubtrie _ [] = Nothing
-    lookupSubtrie c ((x,t) : xs)
-      | c == x = Just t
-      | c < x = Nothing
-      | otherwise = lookupSubtrie c xs
+sandwichableLetters t xs ys = [x | x <- ['a'..'z'], check t (xs ++ [x] ++ ys)]
 
 {- A constraint represents a predicate on characters.
    A character c is said to *match* a constraint
@@ -523,23 +505,23 @@ type Pattern = [Constraint]
  -}
 filterLength :: Int -> Trie -> Trie
 filterLength n (Trie b ts) = Trie b (filterLengthHelper n ts)
+
+filterLengthHelper :: Int -> [(Char, Trie)] -> [(Char, Trie)]
+filterLengthHelper _ [] = []
+filterLengthHelper len ((c, subtrie):rest)
+  | len == 0 = []
+  | len == 1 = [(c, subtrie) | isWord subtrie]
+  | otherwise = (c, filterLength (len - 1) subtrie) : filterLengthHelper len rest
   where
-    filterLengthHelper :: Int -> [(Char, Trie)] -> [(Char, Trie)]
-    filterLengthHelper _ [] = []
-    filterLengthHelper len ((c, subtrie):rest)
-      | len == 0 = []
-      | len == 1 = [(c, subtrie) | isWord subtrie]
-      | otherwise = (c, filterLength (len - 1) subtrie) : filterLengthHelper len rest
-      where
-        isWord :: Trie -> Bool
-        isWord (Trie isWord _) = isWord
+    isWord :: Trie -> Bool
+    isWord (Trie isWord _) = isWord
 
 {- `filterPattern cs t` should return
    a dictionary containing all words in t
    that matches the pattern cs.
  -}
 filterPattern :: Pattern -> Trie -> Trie
-filterPattern [] t = t  -- Empty pattern matches everything
+filterPattern [] t = t  
 filterPattern (Wildcard:cs) (Trie b ts) = Trie b (map (\(c, subtrie) -> (c, filterPattern cs subtrie)) ts)
 filterPattern ((Mem xs):cs) (Trie b ts) = Trie b (filter (\(c, _) -> c `elem` xs) ts')
   where
@@ -583,14 +565,14 @@ instance Arbitrary Tile where
    present in the input dictionary.
  -}
 filterPlayables :: Rack -> Trie -> Trie
-filterPlayables [] t = t  -- Empty rack matches everything
+filterPlayables [] t = t  
 filterPlayables (tile:rack) (Trie b ts) = Trie b (filterTile tile ts')
   where
     ts' = [(c, filterPlayables rack subtrie) | (c, subtrie) <- ts]
 
-    filterTile :: Tile -> [(Char, Trie)] -> [(Char, Trie)]
-    filterTile Blank ts = ts  -- Blank tile can be used as any letter
-    filterTile (Letter c) ts = filter (\(ch, _) -> ch == c) ts
+filterTile :: Tile -> [(Char, Trie)] -> [(Char, Trie)]
+filterTile Blank ts = ts  
+filterTile (Letter c) ts = filter (\(ch, _) -> ch == c) ts
 
 {- `Board xs` represents a view of the board state as follows:
    - each element of xs represents a column
