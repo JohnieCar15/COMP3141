@@ -65,15 +65,7 @@ leaf :: Priority -> a -> QueueTree a
 leaf prio = Leaf (size 1, prio)
 
 node :: QueueTree a -> QueueTree a -> QueueTree a
-node l r =
-  let leftMaxPrio = maxPrio l
-      rightMaxPrio = maxPrio r
-      leftSize = sizeOf l
-      rightSize = sizeOf r
-      subtreeMaxPrio = getMax leftMaxPrio rightMaxPrio
-      subtreeSize = leftSize <> rightSize
-  in
-    Node (subtreeSize, subtreeMaxPrio) l r
+node = error "'node' not implemented"
 
 
 
