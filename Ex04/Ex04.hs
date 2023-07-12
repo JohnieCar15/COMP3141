@@ -1,6 +1,6 @@
 module Ex04 where
 
-import Data.Semigroup
+import Data.Semigroup ( Max(Max, getMax) )
 import Data.Monoid
 import Control.Monad.State (State, get, put, evalState)
 import Test.QuickCheck
@@ -49,7 +49,8 @@ balanced _ = True
 -- a monoid.
 
 wf :: QueueTree a -> Bool
-wf = error "'wf' not implemented"
+wf (Leaf (s, p) x) = True
+wf (Node (s, p) x y) = wf x && wf y
 
 -- Task 1b. Write smart constructors `leaf` and `node`
 --          for the `QueueTree` data type which maintain
@@ -61,10 +62,18 @@ wf = error "'wf' not implemented"
 --          ~node Null Null = Null~.
 
 leaf :: Priority -> a -> QueueTree a
-leaf = error "'leaf' not implemented"
+leaf prio = Leaf (size 1, prio)
 
 node :: QueueTree a -> QueueTree a -> QueueTree a
-node = error "'node' not implemented"
+node l r =
+  let leftMaxPrio = maxPrio l
+      rightMaxPrio = maxPrio r
+      leftSize = sizeOf l
+      rightSize = sizeOf r
+      subtreeMaxPrio = getMax leftMaxPrio rightMaxPrio
+      subtreeSize = leftSize <> rightSize
+  in
+    Node (subtreeSize, subtreeMaxPrio) l r
 
 
 
