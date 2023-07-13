@@ -6,6 +6,7 @@ import Control.Monad.State (State, get, put, evalState)
 import Test.QuickCheck
 import Priority
 import Size
+import Control.Concurrent (Chan)
 
 -- DEFINITIONS AND HELPER FUNCTIONS --
 
@@ -37,6 +38,22 @@ balanced (Node i l r) =
   abs (sl - sr) <= 1 && balanced l && balanced r
 balanced _ = True
 
+wfTree :: QueueTree Char
+wfTree = Node (size 3,priority 7)
+  ( Node (size 2,priority 7)
+      (Leaf (size 1,priority 7) 'b')
+      (Leaf (size 1,priority 5) 'c')
+  )
+  (Leaf (size 1,priority 3) 'a')
+
+nwfTree :: QueueTree Char
+nwfTree = Node (size 2,priority 7)
+  ( Node (size 2,priority 5)
+      (Leaf (size 1,priority 7) 'b')
+      (Leaf (size 1,priority 5) 'c')
+  )
+  (Leaf (size 1,priority 3) 'a')
+
 
 
 -- EXERCISE STARTS HERE --
@@ -49,8 +66,16 @@ balanced _ = True
 -- a monoid.
 
 wf :: QueueTree a -> Bool
-wf (Leaf (s, p) x) = True
-wf (Node (s, p) x y) = wf x && wf y
+wf Null = True
+wf (Leaf (s, p) x) = s == size 1 && unPriority p >= 1
+wf (Node (s, p) l r) = 
+  let currp = unPriority p in
+  let currs = unSize s in
+  let pl = unPriority (maxPrio l) in
+  let pr = unPriority (maxPrio r) in
+  let sl = unSize (sizeOf l) in
+  let sr = unSize (sizeOf r) in
+  currp >= pl && currp >= pr && sl + sr == currs && wf l && wf r
 
 -- Task 1b. Write smart constructors `leaf` and `node`
 --          for the `QueueTree` data type which maintain
@@ -65,9 +90,12 @@ leaf :: Priority -> a -> QueueTree a
 leaf prio = Leaf (size 1, prio)
 
 node :: QueueTree a -> QueueTree a -> QueueTree a
-node = error "'node' not implemented"
-
-
+node l r = 
+  let sl = unSize (sizeOf l) in
+  let sr = unSize (sizeOf r) in
+  let pl = unPriority (maxPrio l) in
+  let pr = unPriority (maxPrio r) in
+  Node (size (sl + sr), priority (max pl pr)) l r
 
 -- Task 2a. Implement the usual priority queue functions
 --          for the type `QueueTree`. These are
