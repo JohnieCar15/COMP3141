@@ -1,7 +1,8 @@
+{-# LANGUAGE LambdaCase #-}
 module Ex05 where
 
 import Data.List
-import Control.Monad.State (State, get, put, evalState)
+import Control.Monad.State (State, get, put, evalState, modify, MonadState (state))
 
 -- Task 1. Eight Queens on a Chessboard
 
@@ -57,16 +58,28 @@ type Queens = [Row] -- position of queen in each column
 --      HINT 2: you may want to use the list monad.
 
 extend :: Queens -> [Queens]
-extend = error "'extend' not implemented"
+extend queens = [queens ++ [queen] | queen <- [0..7], isSafe (queen, length queens) queens]
+
+isSafe :: (Row, Int) -> Queens -> Bool
+isSafe (row, col) queens = all (\(r, c) -> row /= r && col /= c && abs (row - r) /= abs (col - c)) (zip queens [0..])
 
 -- 1.b. Implement a function that, given a row position `p`,
 --      returns the list of all possible solutions to the eight
 --      queens problem in which the queen in the first column
 --      is placed in the row position `p`.
 solutionStartWith :: Int -> [Queens]
-solutionStartWith = error "'solutionStartWith' not implemented"
+solutionStartWith p = do
+                      x <- (extend [p])
+                      x <- extend x
+                      x <- extend x
+                      x <- extend x
+                      x <- extend x
+                      x <- extend x
+                      extend x
+                        
 
-
+numSolutionsProp :: Bool
+numSolutionsProp = (foldl (+) 0 $ map (\x -> length $ solutionStartWith x) [0..7]) == 92
 
 
 -- Task 2. RPN calculator
@@ -122,7 +135,9 @@ push x =
 --      the top element of the stack. Keep in mind that empty
 --      stacks are treated as if they were padded with zeroes.
 pop :: State Stack Double
-pop = error "'pop' not implemented"
+pop = state $ \stack -> case stack of
+  []     -> (0, [])
+  (x:xs) -> (x, xs)
 
 -- The Clear user action lets the user remove the top element
 -- of the current stack.
@@ -134,32 +149,43 @@ clear =
 -- 2.b. Implement the AllClear user action, which removes all
 --      elements from the stack.
 allClear :: State Stack ()
-allClear = error "'allClear' not implemented"
+allClear = modify (const [])
 
 -- 2.c. Implement the Swap user action, which switches the order
 --      of the two topmost elements in the stack. Keep in mind
 --      that empty stacks are zero-padded.
 swap :: State Stack ()
-swap = error "'swap' not implemented"
+swap = do
+  x <- pop
+  y <- pop
+  push x
+  push y
 
 -- 2.d. Implement the `Arith` user action, which performs the
 --      given arithmetic operation on the top two elements of
 --      the stack. E.g. if the stack contains `[2,3]`, then
 --      `Arith (-)` should result in `[1]`.
 performArith :: (Double -> Double -> Double) -> State Stack ()
-performArith = error "'performArith' not implemented"
+performArith op = do
+  x <- pop
+  y <- pop
+  push (op y x)
 
 -- 2.e. Implement the `app1` function, which applies the given
 --      user action to the current stack.
 app1 :: UserAction -> State Stack ()
-app1 = error "'app1' not implemented"
+app1 (Arith op)  = performArith op
+app1 Clear       = clear
+app1 AllClear    = allClear
+app1 Swap        = swap
+app1 (Enter num) = push num
 
 -- 2.f. Implement the `app` function, which applies the given
 --      list of user actions, in order, starting with the head
 --      of the list. Once all actions are perforemd, it returns
 --      the final state of the stack.
 app :: [UserAction] -> State Stack Stack
-app = error "'app' not implemented"
+app actions = mapM_ app1 actions >> get
 
 
 -- you can use `runCalc` to test your implementation. E.g.
