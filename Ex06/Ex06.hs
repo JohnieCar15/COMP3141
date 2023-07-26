@@ -18,8 +18,25 @@ import Text.Read (readMaybe)
 -- procedures.
 
 onlyUnique :: FilePath -> FilePath -> IO ()
-onlyUnique inputFile outputFile =
-  error "'onlyUnique' not implemented"
+onlyUnique inputFile outputFile = do
+
+  content <- readFile inputFile
+
+  let linesList = lines content
+
+  let uniqueLines = filter (\line -> countLines line linesList == 1) linesList
+
+  writeFile outputFile (unlines uniqueLines)
+
+-- Function to count the occurrences of an element in a list
+countLines :: Eq a => a -> [a] -> Int
+countLines x = length . filter (== x)
+
+runUnique :: IO ()
+runUnique = do
+  let inputFilePath = "input.txt"  -- Replace with the actual input file path
+      outputFilePath = "output.txt"  -- Replace with the desired output file path
+  onlyUnique inputFilePath outputFilePath
 
 -- TASK 2 --
 
@@ -115,9 +132,17 @@ data AiState =
 
 
 ai :: Player (State AiState)
-ai = Player { guess = aiGuess, signalWrong = aiWrong } where
-  aiGuess = error "'aiGuess' not implemented"
-  aiWrong = error "'aiWrong' not implemented"
+ai = Player { guess = aiGuess, signalWrong = aiWrong }
+  where
+    aiGuess = do
+      (AiState lower upper) <- get
+      return $ (lower + upper) `div` 2
+    aiWrong response = do
+      (AiState lower upper) <- get
+      let mid = (lower + upper) `div` 2
+      case response of
+        Lower  -> put $ AiState lower (mid - 1)
+        Higher -> put $ AiState (mid + 1) upper
 
 
 -- Testing the AI:
