@@ -90,7 +90,7 @@ try (Just a) = return a
  -}
 keyword :: String -> Parser ()
 keyword kw =
-  Parser(\s ->
+  Parser (\s ->
            let (xs,ys) = splitAt (length kw) s
            in
              if xs == kw then
@@ -106,7 +106,7 @@ keyword kw =
  -}
 parsePred :: (Char -> Bool) -> Parser String
 parsePred f =
-  Parser(\s ->
+  Parser (\s ->
            let xs = takeWhile f s
            in
              Just (drop (length xs) s, xs))
@@ -120,9 +120,9 @@ parsePred f =
  -}
 least :: (String -> Bool) -> Parser String
 least f =
-  Parser(\s -> do
+  Parser (\s -> do
             xs <- find f $ inits s
-            return(drop (length xs) s, xs))
+            return (drop (length xs) s, xs))
 
 {- `orelse p1 p2` is a parser that
    behaves like p1, unless p1 fails.
@@ -162,7 +162,7 @@ parseWhile p =
    fail, `first ps` fails too.
  -}
 first :: [Parser a] -> Parser a
-first = error "TODO: implement first"
+first = foldr orelse abort 
 
 {- peekChar is a parser that
    returns the first character
@@ -349,7 +349,7 @@ instance Arbitrary JSON where
 instance Arbitrary Data where
   shrink (JSONData j) = JSONData <$> shrink j
   shrink (List l) = List <$> shrink l
-  shrink d = []  
+  shrink d = []
   arbitrary = frequency [
                      (3,Number   <$> arbitrary),
                      (3,String   <$> arbitrary),
@@ -438,7 +438,7 @@ arbitraryTime =
     Large d <- arbitrary
     t <- choose (0,86400)
     return $ UTCTime (toEnum $ abs d) (secondsToDiffTime t)
-          
+
 
 {- These utility functions will be handy I promise -}
 getString :: Data -> Maybe String

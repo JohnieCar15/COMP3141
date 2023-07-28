@@ -6,6 +6,8 @@ import System.IO
 import System.Random
 import Test.QuickCheck
 import Text.Read (readMaybe)
+import Data.Char (isDigit)
+import Test.QuickCheck.Text (putLine)
 
 -- TASK 1 --
 
@@ -160,4 +162,5 @@ prop_winsEventually (Secret s) =
 -- a perfect AI can win any game in at most 7 guesses
 prop_winsOptimally (Secret s) =
   evalState (gameLoop (GameState 7 s) ai) (AiState 1 100) == PlayerWon
+
 
