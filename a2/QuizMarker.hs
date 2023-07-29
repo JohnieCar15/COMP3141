@@ -162,7 +162,7 @@ parseWhile p =
    fail, `first ps` fails too.
  -}
 first :: [Parser a] -> Parser a
-first = foldr orelse abort 
+first = foldr orelse abort
 
 {- peekChar is a parser that
    returns the first character
@@ -175,7 +175,12 @@ first = foldr orelse abort
      == Just ("bla",'b')
  -}
 peekChar :: Parser Char
-peekChar = error "TODO: implement peekChar"
+peekChar = Parser $ \s ->
+  case s of
+    [] -> Nothing
+    (c:cs) -> Just (s, c)
+
+
 
 {- parseChar is a parser that
    consumes (and returns) a single
@@ -188,14 +193,17 @@ peekChar = error "TODO: implement peekChar"
      == Just ("la",'b')
  -}
 parseChar :: Parser Char
-parseChar = error "TODO: implement parseChar"
+parseChar = Parser $ \s ->
+  case s of
+    [] -> Nothing
+    (c:cs) -> Just (cs, c)
 
 {- A parser that consumes all leading
    whitespace (as determined by isSpace).
    Should always succeed.
  -}
 whiteSpace :: Parser ()
-whiteSpace = error "TODO: implement whiteSpace"
+whiteSpace = parsePred isSpace *> pure () 
 
 {- parseBool either
    consumes "true" to produce True,
@@ -203,14 +211,18 @@ whiteSpace = error "TODO: implement whiteSpace"
    or fails if unable.
  -}
 parseBool :: Parser Bool
-parseBool = error "TODO: implement parseBool"
+parseBool = (keyword "true" *> pure True) `orelse` (keyword "false" *> pure False)
 
 {- parsePositiveInt is a parser that parses a
    non-empty sequence of digits (0-9)
    into a number.
  -}
 parsePositiveInt :: Parser Int
-parsePositiveInt = error "TODO: implement parseInt"
+parsePositiveInt = do
+  digits <- parsePred (\c -> c >= '0' && c <= '9')
+  case readMaybe digits of
+    Just n -> return n
+    Nothing -> abort
 
 {- parseDouble is a parser that parses a number on the
    format:
