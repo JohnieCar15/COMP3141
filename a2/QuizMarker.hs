@@ -203,7 +203,7 @@ parseChar = Parser $ \s ->
    Should always succeed.
  -}
 whiteSpace :: Parser ()
-whiteSpace = parsePred isSpace *> pure () 
+whiteSpace = parsePred isSpace *> pure ()
 
 {- parseBool either
    consumes "true" to produce True,
@@ -221,7 +221,9 @@ parsePositiveInt :: Parser Int
 parsePositiveInt = do
   digits <- parsePred (\c -> c >= '0' && c <= '9')
   case readMaybe digits of
-    Just n -> return n
+    Just n -> case n of
+                0 -> abort
+                n -> return n
     Nothing -> abort
 
 {- parseDouble is a parser that parses a number on the
@@ -237,8 +239,32 @@ parsePositiveInt = do
    We do not support such numbers.
  -}
 parseDouble :: Parser Double
-parseDouble = error "TODO: implement parseDouble"
+parseDouble = do
+  sign <- parsePred (\c -> c == '-')
+  wholePart <- parsePred isDigit
+  decimalPart <- parsePred (\c -> c == '.')
+  fractionPart <- parsePred isDigit
+  let numStr = sign ++ wholePart ++ decimalPart ++ fractionPart
+  case readMaybe numStr of
+    Just n -> return n
+    Nothing -> abort
 
+unitTests2 :: Bool
+unitTests2 = u1 && u2 && u3 && u4 && u5 && u6 && u7 && u8 && u9
+  where
+    u1 = runParserPartial parsePositiveInt "0" == Nothing
+    u2 = runParserPartial parsePositiveInt "012" == Just ("", 12)
+    u3 = runParserPartial parseDouble "1..0" == Just ("..0",1.0)
+    u4 = runParserPartial parseDouble "1.as" == Just (".as",1.0)
+    u5 = runParserPartial parseDouble "-.123" == Nothing
+    u6 = runParserPartial parseDouble ".123" == Nothing
+    u7 = runParserPartial parseDouble "1." == Just (".",  1.0)
+    u8 = runParserPartial parseDouble "." == Nothing
+        && runParserPartial parseDouble "-" == Nothing
+        && runParserPartial parseDouble "-." == Nothing
+        && runParserPartial parseDouble "." == Nothing
+    u9 = runParserPartial parseDouble "1.1.1" == Just (".1", 1.1)
+    
 {- `parseString` is a parser that consumes a quoted
    string delimited by " quotes, and returns it.
 
@@ -263,7 +289,13 @@ parseDouble = error "TODO: implement parseDouble"
          does less than optimally useful?
  -}
 parseString :: Parser String
-parseString = error "TODO: implement parseString"
+parseString = do
+  _ <- keyword "\""
+  str <- parsePred (/= '"') `orelse` pure ""
+  _ <- keyword "\""
+  case readMaybe ("\"" ++ str ++ "\"") of
+    Just s -> return s
+    Nothing -> abort
 
 {- `parseList l r p` parses a
    comma-separated list that
