@@ -351,10 +351,44 @@ runParser (Parser p) s =
 runParserPartial :: Parser a -> String -> Maybe(String,a)
 runParserPartial (Parser p) s = p s
 
+parsePositiveIntTests :: Bool
+parsePositiveIntTests = u1 && u2 && u3 where
+  u1 = runParserPartial parsePositiveInt "12hdfgn4" == Just ("hdfgn4",12)
+  u2 = runParserPartial parsePositiveInt "0" == Nothing
+  u3 = runParserPartial parsePositiveInt "012" == Just ("", 12)
 
--- Unit tests (stolen from forum)
-unitTests1 :: Bool
-unitTests1 = u1 && u2 && u3 && u4 && u5 && u6 && u7 
+parseDoubleTests :: Bool
+parseDoubleTests = u1 && u2 && u3 && u4 && u5 && u6 && u7
+  where
+    u1 = runParserPartial parseDouble "1..0" == Just ("..0",1.0) {- Produces nothing -}
+    u2 = runParserPartial parseDouble "1.as" == Just (".as",1.0) {- Produces nothing -}
+    u3 = runParserPartial parseDouble "-.123" == Nothing
+    u4 = runParserPartial parseDouble ".123" == Nothing
+    u5 = runParserPartial parseDouble "1." == Just (".",  1.0) {- Produces nothing -}
+    u6 = runParserPartial parseDouble "." == Nothing
+        && runParserPartial parseDouble "-" == Nothing
+        && runParserPartial parseDouble "-." == Nothing
+        && runParserPartial parseDouble "." == Nothing
+    u7 = runParserPartial parseDouble "1.1.1" == Just (".1", 1.1)
+
+parseBoolTests :: Bool
+parseBoolTests = u1 && u2 && u3
+  where
+    u1 = runParserPartial parseBool "hellotrue" == Nothing
+    u2 = runParserPartial parseBool "truehello" == Just ("hello", True)
+    u3 = runParserPartial parseBool "ttruehello" == Nothing
+
+parseStringTests :: Bool
+parseStringTests = u1 && u2 && u3 && u4 && u5 && u6 where
+    u1 = runParserPartial  parseString "\"safsasfa\"sfaf\"\"afasfasf" == Just ("sfaf\"\"afasfasf", "safsasfa")
+    u2 = runParserPartial  parseString "\"safsasfa\\\"sfaf\"\"afasfasf" == Just("\"afasfasf", "safsasfa\"sfaf") {- Produces nothing -}
+    u3 = runParser parseString "\"a\\\"b\"" == Just "a\"b" {- Produces nothing -}
+    u4 = runParser parseString "[]" == Nothing
+    u5 = runParser parseString "['a']" == Nothing
+    u6 = runParserPartial parseString "[]a" == Nothing
+
+parseListTests :: Bool
+parseListTests = u1 && u2 && u3 && u4 && u5 && u6 && u7 && u8 && u9 && u10 && u11 && u12
   where
     u1 = runParserPartial (parseList '[' ']' parseDouble) "[2.0, 3, 4, 6a]" == Nothing
     u2 = runParserPartial(parseList '[' ']' abort::Parser String) "[a, b, c, d]" == Nothing
@@ -364,46 +398,12 @@ unitTests1 = u1 && u2 && u3 && u4 && u5 && u6 && u7
     u5 = runParserPartial (parseList '[' '1' parseDouble) "[1.01" == Just (".01",[])
     {- Produces nothing -}
     u6 = runParser (parseList '[' ']' parseDouble) "[]" == Just []
-    u7 = runParserPartial parsePositiveInt "12hdfgn4" == Just ("hdfgn4",12)
-
-unitTests2 :: Bool
-unitTests2 = u1 && u2 && u3 && u4 && u5 && u6 && u7 && u8 && u9
-  where
-    u1 = runParserPartial parsePositiveInt "0" == Nothing
-    u2 = runParserPartial parsePositiveInt "012" == Just ("", 12)
-    u3 = runParserPartial parseDouble "1..0" == Just ("..0",1.0) {- Produces nothing -}
-    u4 = runParserPartial parseDouble "1.as" == Just (".as",1.0) {- Produces nothing -}
-    u5 = runParserPartial parseDouble "-.123" == Nothing
-    u6 = runParserPartial parseDouble ".123" == Nothing
-    u7 = runParserPartial parseDouble "1." == Just (".",  1.0) {- Produces nothing -}
-    u8 = runParserPartial parseDouble "." == Nothing
-        && runParserPartial parseDouble "-" == Nothing
-        && runParserPartial parseDouble "-." == Nothing
-        && runParserPartial parseDouble "." == Nothing
-    u9 = runParserPartial parseDouble "1.1.1" == Just (".1", 1.1)
-
-unitTests3 :: Bool
-unitTests3 = u1 && u2 && u3 && u4 && u5 && u6 && u7 && u8 && u9
-  where
-    u1 = runParserPartial parseBool "hellotrue" == Nothing
-    u2 = runParserPartial parseBool "truehello" == Just ("hello", True)
-    u3 = runParserPartial parseBool "ttruehello" == Nothing
-    u4 = runParserPartial  parseString "\"safsasfa\"sfaf\"\"afasfasf" == Just ("sfaf\"\"afasfasf", "safsasfa")
-    u5 = runParserPartial  parseString "\"safsasfa\\\"sfaf\"\"afasfasf" == Just("\"afasfasf", "safsasfa\"sfaf") {- Produces nothing -}
-    u6 = runParser parseString "\"a\\\"b\"" == Just "a\"b" {- Produces nothing -}
-    u7 = runParser parseString "[]" == Nothing
-    u8 = runParser parseString "['a']" == Nothing
-    u9 = runParserPartial parseString "[]a" == Nothing
-
-unitTests4 :: Bool
-unitTests4 = u1 && u2 && u3 && u4 && u5 && u6 
-  where
-    u1 = runParserPartial (parseList '[' ']' parseDouble) "[12 13]" == Nothing
-    u2 = runParserPartial (parseList '[' ']' parseDouble) "[1,,2]" == Nothing
-    u3 = runParserPartial (parseList '[' ']' parseDouble) "[,1,2]" == Nothing
-    u4 = runParserPartial (parseList '[' ']' parseDouble) "[1,2,]" == Nothing
-    u5 = runParserPartial (parseList '[' '1' parseDouble) "[1, 2]" == Just (", 2]", []) {- Produces nothing -}
-    u6 = runParserPartial (parseList '[' ']' parseDouble) "[12, 13" == Nothing
+    u7 = runParserPartial (parseList '[' ']' parseDouble) "[12 13]" == Nothing
+    u8 = runParserPartial (parseList '[' ']' parseDouble) "[1,,2]" == Nothing
+    u9 = runParserPartial (parseList '[' ']' parseDouble) "[,1,2]" == Nothing
+    u10 = runParserPartial (parseList '[' ']' parseDouble) "[1,2,]" == Nothing
+    u11 = runParserPartial (parseList '[' '1' parseDouble) "[1, 2]" == Just (", 2]", []) {- Produces nothing -}
+    u12 = runParserPartial (parseList '[' ']' parseDouble) "[12, 13" == Nothing
 
 {- Now for our JSON parser.
    `JSON` is a datatype for representing
