@@ -264,7 +264,7 @@ unitTests2 = u1 && u2 && u3 && u4 && u5 && u6 && u7 && u8 && u9
         && runParserPartial parseDouble "-." == Nothing
         && runParserPartial parseDouble "." == Nothing
     u9 = runParserPartial parseDouble "1.1.1" == Just (".1", 1.1)
-    
+
 {- `parseString` is a parser that consumes a quoted
    string delimited by " quotes, and returns it.
 
@@ -323,8 +323,22 @@ parseString = do
    delimiters will be handy later.
  -}
 parseList :: Char -> Char -> Parser a -> Parser [a]
-parseList =
-  error "TODO: implement parseList"
+parseList l r p = do
+  _ <- keyword [l]
+  items <- parseItems `orelse` pure []
+  _ <- keyword [r]
+  return items
+  where
+    parseItems = do
+      x <- p
+      xs <- parseRest `orelse` return []
+      return (x : xs)
+
+    parseRest = do
+      _ <- keyword ","
+      x <- p
+      xs <- parseRest `orelse` return []
+      return (x : xs)
 
 {- `runParser s p` runs the parser p
    on input s.
