@@ -8,6 +8,8 @@ import Text.Read(readMaybe)
 import Data.Time.Format
 import Data.Time.Clock
 import Test.QuickCheck
+import GHC.OldList (intercalate)
+import Numeric (showFFloat)
 
 {- A `Parser a` consumes input (of type `String`),
    and can either fail (represented by returning `Nothing`)
@@ -309,24 +311,21 @@ parseString = do
 parseList :: Char -> Char -> Parser a -> Parser [a]
 parseList l r p = do
   _ <- keyword [l]
-  items <- parseItems `orelse` pure []
+  items <- parseItems
   _ <- keyword [r]
   return items
   where
     parseItems = do
       x <- p
-      xs <- parseRest `orelse` return []
-      return (x : xs)
-
-    parseRest = do
-      _ <- keyword ","
-      x <- p
-      xs <- parseRest `orelse` return []
-      return (x : xs)
+      (do
+        _ <- keyword ","
+        _ <- whiteSpace
+        xs <- parseItems
+        return (x : xs)) `orelse` return [x]
 
 sillyParser :: Parser String
 sillyParser = do
-    c <- peekChar 
+    c <- peekChar
     if c == 'b' then return []
     else do
       x <- parseChar
@@ -483,7 +482,34 @@ instance Arbitrary Data where
     function needs to be mutually recursive with parseData.
  -}
 parseJSON :: Parser JSON
-parseJSON = error "TODO: implement parseJSON"
+parseJSON = do
+  _ <- whiteSpace
+  _ <- keyword "{"
+  kvs <- parseKVPairs `orelse` return []
+  _ <- whiteSpace
+  _ <- keyword "}"
+  return (JSON kvs)
+  where
+    parseKVPairs = do
+      kv <- parseKVP `orelse` return (("", Null))
+      kvs <- parseRestKVPairs `orelse` return []
+      return (kv : kvs)
+
+    parseRestKVPairs = do
+      _ <- whiteSpace
+      _ <- keyword ","
+      _ <- whiteSpace
+      kv <- parseKVP
+      kvs <- parseRestKVPairs `orelse` return []
+      return (kv : kvs)
+
+    parseKVP = do
+      _ <- whiteSpace
+      key <- parseString
+      _ <- whiteSpace
+      _ <- keyword ":"
+      value <- parseData
+      return (key, value)
 
 {- A parser for JSON data values.
 
@@ -497,6 +523,24 @@ parseJSON = error "TODO: implement parseJSON"
  -}
 parseData :: Parser Data
 parseData = error "TODO: implement parseData"
+
+prop_parseJSONWorks :: JSON -> Bool
+prop_parseJSONWorks j = runParser parseJSON (jsonToStr j) == Just j
+
+-- Helper functions for converting from parsed data to unparsed format
+jsonToStr :: JSON -> String
+jsonToStr (JSON j) = "{" ++ intercalate ", " (map keyValuePairToStr j) ++ "}"
+
+keyValuePairToStr :: (String, Data) -> String
+keyValuePairToStr (k, v) = show k ++ ": " ++ dataToStr v
+
+dataToStr :: Data -> String
+dataToStr (Number n) = showFFloat Nothing n ""
+dataToStr (String s) = show s
+dataToStr (List l) = "[" ++ intercalate ", " (map dataToStr l) ++ "]"
+dataToStr (Bool b) = if b then "true" else "false"
+dataToStr Null = "null"
+dataToStr (JSONData j) = jsonToStr j
 
 {- Time strings are represented in the following format:
 
