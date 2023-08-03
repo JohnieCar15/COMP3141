@@ -324,6 +324,15 @@ parseList l r p = do
       xs <- parseRest `orelse` return []
       return (x : xs)
 
+sillyParser :: Parser String
+sillyParser = do
+    c <- peekChar 
+    if c == 'b' then return []
+    else do
+      x <- parseChar
+      xs <- sillyParser
+      return (x:xs)
+
 {- `runParser s p` runs the parser p
    on input s.
    This should return Nothing if:
