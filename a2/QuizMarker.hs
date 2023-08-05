@@ -1,7 +1,7 @@
 module QuizMarker where
 
 import Data.Maybe(isJust)
-import Data.List(inits,nub)
+import Data.List(inits,nub, intersect)
 import Data.Char(isSpace,isDigit)
 import Data.Foldable(find)
 import Text.Read(readMaybe)
@@ -10,6 +10,9 @@ import Data.Time.Clock
 import Test.QuickCheck
 import GHC.OldList (intercalate)
 import Numeric (showFFloat)
+import Control.Monad
+import Control.Applicative ((<|>))
+
 
 {- A `Parser a` consumes input (of type `String`),
    and can either fail (represented by returning `Nothing`)
@@ -221,7 +224,7 @@ parseBool = (keyword "true" *> pure True) `orelse` (keyword "false" *> pure Fals
  -}
 parsePositiveInt :: Parser Int
 parsePositiveInt = do
-  digits <- parsePred (\c -> c >= '0' && c <= '9')
+  digits <- parsePred isDigit
   case readMaybe digits of
     Just n -> case n of
                 0 -> abort
@@ -242,14 +245,11 @@ parsePositiveInt = do
  -}
 parseDouble :: Parser Double
 parseDouble = do
-  sign <- parsePred (\c -> c == '-')
+  sign <- parsePred (== '-')
   wholePart <- parsePred isDigit
-  decimalPart <- parsePred (\c -> c == '.')
+  decimalPart <- parsePred (== '.')
   fractionPart <- parsePred isDigit
-  let numStr = sign ++ wholePart ++ decimalPart ++ fractionPart
-  case readMaybe numStr of
-    Just n -> return n
-    Nothing -> abort
+  maybe abort return (readMaybe (sign ++ wholePart ++ decimalPart ++ fractionPart))
 
 {- `parseString` is a parser that consumes a quoted
    string delimited by " quotes, and returns it.
@@ -309,11 +309,12 @@ parseString = do
    delimiters will be handy later.
  -}
 parseList :: Char -> Char -> Parser a -> Parser [a]
-parseList l r p = do
+parseList l r p = (do
   _ <- keyword [l]
   items <- parseItems
   _ <- keyword [r]
-  return items
+  return items)
+  `orelse` (keyword [l] >> keyword [r] >> return [])
   where
     parseItems = do
       x <- p
@@ -322,16 +323,7 @@ parseList l r p = do
         _ <- whiteSpace
         xs <- parseItems
         return (x : xs)) `orelse` return [x]
-
-sillyParser :: Parser String
-sillyParser = do
-    c <- peekChar
-    if c == 'b' then return []
-    else do
-      x <- parseChar
-      xs <- sillyParser
-      return (x:xs)
-
+        
 {- `runParser s p` runs the parser p
    on input s.
    This should return Nothing if:
@@ -389,7 +381,7 @@ parseBoolTests = u1 && u2 && u3
 parseStringTests :: Bool
 parseStringTests = u1 && u2 && u3 && u4 && u5 && u6 where
     u1 = runParserPartial  parseString "\"safsasfa\"sfaf\"\"afasfasf" == Just ("sfaf\"\"afasfasf", "safsasfa")
-    u2 = runParserPartial  parseString "\"safsasfa\\\"sfaf\"\"afasfasf" == Just("\"afasfasf", "safsasfa\"sfaf") {- Produces nothing -}
+    u2 = runParserPartial  parseString "\"safsasfa\\\"sfaf\"\"afasfasf" == Just ("\"afasfasf", "safsasfa\"sfaf") {- Produces nothing -}
     u3 = runParser parseString "\"a\\\"b\"" == Just "a\"b" {- Produces nothing -}
     u4 = runParser parseString "[]" == Nothing
     u5 = runParser parseString "['a']" == Nothing
@@ -399,9 +391,9 @@ parseListTests :: Bool
 parseListTests = u1 && u2 && u3 && u4 && u5 && u6 && u7 && u8 && u9 && u10 && u11 && u12
   where
     u1 = runParserPartial (parseList '[' ']' parseDouble) "[2.0, 3, 4, 6a]" == Nothing
-    u2 = runParserPartial(parseList '[' ']' abort::Parser String) "[a, b, c, d]" == Nothing
+    u2 = runParserPartial (parseList '[' ']' abort::Parser String) "[a, b, c, d]" == Nothing
     u3 = runParserPartial (parseList '[' ']' whiteSpace) "[     a,   b,c,d, e]" == Nothing
-    u4 = runParserPartial (parseList '[' ']' (parsePred (\x -> x == 'a'))) "[aaaaaa, a, aa, aa, a, a]" == Just("", ["aaaaaa", "a", "aa", "aa", "a", "a"])
+    u4 = runParserPartial (parseList '[' ']' (parsePred (\x -> x == 'a'))) "[aaaaaa, a, aa, aa, a, a]" == Just ("", ["aaaaaa", "a", "aa", "aa", "a", "a"])
     {- Produces nothing -}
     u5 = runParserPartial (parseList '[' '1' parseDouble) "[1.01" == Just (".01",[])
     {- Produces nothing -}
@@ -483,31 +475,15 @@ instance Arbitrary Data where
  -}
 parseJSON :: Parser JSON
 parseJSON = do
-  _ <- whiteSpace
-  _ <- keyword "{"
-  kvs <- parseKVPairs `orelse` return []
-  _ <- whiteSpace
-  _ <- keyword "}"
-  return (JSON kvs)
+  kvps <- parseList '{' '}' parseKVP
+  return $ JSON kvps
   where
-    parseKVPairs = do
-      kv <- parseKVP `orelse` return (("", Null))
-      kvs <- parseRestKVPairs `orelse` return []
-      return (kv : kvs)
-
-    parseRestKVPairs = do
-      _ <- whiteSpace
-      _ <- keyword ","
-      _ <- whiteSpace
-      kv <- parseKVP
-      kvs <- parseRestKVPairs `orelse` return []
-      return (kv : kvs)
-
+    parseKVP :: Parser (String, Data)
     parseKVP = do
-      _ <- whiteSpace
       key <- parseString
-      _ <- whiteSpace
+      whiteSpace
       _ <- keyword ":"
+      whiteSpace
       value <- parseData
       return (key, value)
 
@@ -522,25 +498,14 @@ parseJSON = do
     function needs to be mutually recursive with parseJSON.
  -}
 parseData :: Parser Data
-parseData = error "TODO: implement parseData"
-
-prop_parseJSONWorks :: JSON -> Bool
-prop_parseJSONWorks j = runParser parseJSON (jsonToStr j) == Just j
-
--- Helper functions for converting from parsed data to unparsed format
-jsonToStr :: JSON -> String
-jsonToStr (JSON j) = "{" ++ intercalate ", " (map keyValuePairToStr j) ++ "}"
-
-keyValuePairToStr :: (String, Data) -> String
-keyValuePairToStr (k, v) = show k ++ ": " ++ dataToStr v
-
-dataToStr :: Data -> String
-dataToStr (Number n) = showFFloat Nothing n ""
-dataToStr (String s) = show s
-dataToStr (List l) = "[" ++ intercalate ", " (map dataToStr l) ++ "]"
-dataToStr (Bool b) = if b then "true" else "false"
-dataToStr Null = "null"
-dataToStr (JSONData j) = jsonToStr j
+parseData = first
+  [ Number <$> parseDouble
+  , String <$> parseString
+  , List <$> parseList '[' ']' parseData
+  , Bool <$> parseBool
+  , keyword "null" >> return Null
+  , JSONData <$> parseJSON
+  ]
 
 {- Time strings are represented in the following format:
 
@@ -634,7 +599,28 @@ getJSON _ = Nothing
    Duplicates of other keys should be ignored.
  -}
 toSubmission :: JSON -> Maybe Submission
-toSubmission = error "TODO: implement toSubmission"
+toSubmission (JSON json) = do
+  sessionStr <- lookup "session" json >>= getString
+  quizName <- lookup "quiz_name" json >>= getString
+  studentName <- lookup "student" json >>= getString
+  timeStr <- lookup "time" json >>= getString
+  answerData <- lookup "answers" json >>= getList
+  answers <- mapM (getList >=> mapM getNumber >=> mapM toBoundedInteger) answerData
+  time <- toTime timeStr
+  return Submission
+    { session = sessionStr
+    , quizName = quizName
+    , student = studentName
+    , answers = answers
+    , time = time
+    }
+
+toBoundedInteger :: Double -> Maybe Int
+toBoundedInteger n =
+  if fromInteger (round n) == n
+    then Just (round n)
+    else Nothing
+
 
 {- This function should convert a JSON object
    to a key-value store where the values are
@@ -644,7 +630,10 @@ toSubmission = error "TODO: implement toSubmission"
    more values that are not valid submissions.
  -}
 toSubmissions :: JSON -> Maybe [(String,Submission)]
-toSubmissions = error "TODO: implement toResults"
+toSubmissions (JSON json) =
+  forM json $ \(key, value) -> do
+    submission <- getJSON value >>= toSubmission
+    return (key, submission)
 
 {- There are two kinds of questions:
    - multiple-choice, represented by CheckBox
@@ -754,8 +743,21 @@ parseQuiz = error "TODO: implement parseQuiz"
      Duplicates should be ignored
      for purposes of the above tally.
  -}
+-- Helper function to remove duplicates from the list and get its length
+len :: Eq a => [a] -> Int
+len = length . nub
+
+-- markQuestion implementation
 markQuestion :: Question -> [Int] -> Double
-markQuestion = error "TODO: implement markQuestion"
+markQuestion q as =
+  case qtype q of
+    Radio ->
+      if as == correct q then 1 else 0
+    CheckBox ->
+      let right = len $ as `intersect` correct q
+          wrong = len as - right
+          correctCount = len $ correct q
+      in max 0 ((fromIntegral right - fromIntegral wrong) / fromIntegral correctCount)
 
 {- The mark assigned to a quiz submission is:
    - 0 if submitted after the deadline.
@@ -763,7 +765,9 @@ markQuestion = error "TODO: implement markQuestion"
      if submitted at or before the deadline.
  -}
 markSubmission :: Quiz -> Submission -> Double
-markSubmission = error "TODO: implement marker"
+markSubmission quiz submission =
+  if time submission > deadline quiz then 0
+  else sum $ zipWith markQuestion (questions quiz) (answers submission)
 
 {- `marker quizStr submissionsStr`
    combines the parsers and business logic as follows:
@@ -788,8 +792,10 @@ markSubmission = error "TODO: implement marker"
 
    The order of the lines is not important.
  -}
+
 marker :: String -> String -> Maybe String
 marker = error "TODO: implement marker"
+
 
 {- Use this to read a quiz key and submissions
    file from the file system, and print the
